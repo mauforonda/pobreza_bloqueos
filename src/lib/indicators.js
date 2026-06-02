@@ -23,7 +23,7 @@ export const CHOROPLETH_INDICATORS = {
     label: "Votación al PDC",
     description: "Porcentaje de votos totales en segunda vuelta electoral",
     source: "Órgano Electoral Plurinacional",
-    tooltipSuffix: "de la población habilitada que votó por el PDC",
+    tooltipSuffix: "de la población habilitada votó por el PDC",
     colors: ["#9f9a95", "#d0ddde", "#1b7c85"],
     field: "pdc_pct",
     formatValue: formatPercent,
