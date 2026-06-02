@@ -182,7 +182,7 @@
   .legend-panel__body {
     display: grid;
     gap: 0.75rem;
-    max-height: min(60vh, 21rem);
+    /* max-height: min(60vh, 21rem); */
     margin-top: 0.5rem;
     overflow-y: auto;
     overflow-x: hidden;
@@ -248,7 +248,8 @@
 
   .legend-circles svg {
     display: block;
-    width: 100%;
+    width: 228px;
+    min-width: 228px;
     max-width: 228px;
     height: auto;
     overflow: visible;
@@ -399,7 +400,9 @@
     }
 
     .legend-circles svg {
-      max-width: none;
+      width: 228px;
+      min-width: 228px;
+      max-width: 228px;
     }
   }
 </style>
