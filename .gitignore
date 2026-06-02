@@ -1,0 +1,20 @@
+# Build output
+build/
+.svelte-kit/
+
+# Node dependencies
+node_modules/
+
+# Python bytecode / cache
+__pycache__/
+*.pyc
+
+# Local OS/editor clutter
+.DS_Store
+
+# Root-level data copies and scratch exports not used by the app build.
+# The app reads the copies in static/ instead.
+/municipios.topo.json
+/municipios.nombres.json
+/nbi.csv
+/nbi_2024.geojson
