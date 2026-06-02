@@ -17,10 +17,10 @@ function parseCsv(text) {
 }
 
 export async function load({fetch}) {
-  const [topologyResponse, csvResponse, namesResponse, bloqueosResponse, caminosResponse] =
+  const [topologyResponse, dataResponse, namesResponse, bloqueosResponse, caminosResponse] =
     await Promise.all([
       fetch(`${base}/municipios.topo.json`),
-      fetch(`${base}/nbi.csv`),
+      fetch(`${base}/data.csv`),
       fetch(`${base}/municipios.nombres.json`),
       fetch(`${base}/bloqueos.csv`),
       fetch(`${base}/caminos.json`),
@@ -28,27 +28,35 @@ export async function load({fetch}) {
 
   const [topology, csvText, nombres, bloqueosText, caminosTopo] = await Promise.all([
     topologyResponse.json(),
-    csvResponse.text(),
+    dataResponse.text(),
     namesResponse.json(),
     bloqueosResponse.text(),
     caminosResponse.json(),
   ]);
 
-  const rowsByCodigo = new Map(
-    parseCsv(csvText).map((row) => [
-      row.codigo,
-      {
-        nbi_12: Number(row.nbi_12),
-        nbi_24: Number(row.nbi_24),
-        poblacion: Number(row.poblacion)
-      }
-    ])
-  );
+  const rowsByCodigo = new Map();
+  const domains = {
+    nbi_24: {min: Number.POSITIVE_INFINITY, max: Number.NEGATIVE_INFINITY},
+    pdc_pct: {min: Number.POSITIVE_INFINITY, max: Number.NEGATIVE_INFINITY},
+  };
+
+  for (const row of parseCsv(csvText)) {
+    const codigo = row.codigo;
+    const stats = {
+      nbi_24: roundToThreeDecimals(Number(row.nbi_24)),
+      pdc_pct: roundToThreeDecimals(Number(row.pdc_pct)),
+    };
+
+    rowsByCodigo.set(codigo, stats);
+
+    domains.nbi_24.min = Math.min(domains.nbi_24.min, stats.nbi_24);
+    domains.nbi_24.max = Math.max(domains.nbi_24.max, stats.nbi_24);
+    domains.pdc_pct.min = Math.min(domains.pdc_pct.min, stats.pdc_pct);
+    domains.pdc_pct.max = Math.max(domains.pdc_pct.max, stats.pdc_pct);
+  }
 
   const municipioFeatures = feature(topology, topology.objects.municipios_full).features;
   const features = [];
-  let min = Number.POSITIVE_INFINITY;
-  let max = Number.NEGATIVE_INFINITY;
 
   for (const item of municipioFeatures) {
     const codigo = item.properties?.municipio;
@@ -57,8 +65,6 @@ export async function load({fetch}) {
     if (!codigo || !stats) continue;
 
     const municipio = nombres[codigo] ?? codigo;
-    min = Math.min(min, stats.nbi_24);
-    max = Math.max(max, stats.nbi_24);
 
     features.push({
       type: "Feature",
@@ -66,7 +72,8 @@ export async function load({fetch}) {
       properties: {
         codigo,
         municipio,
-        nbi_24: stats.nbi_24
+        nbi_24: stats.nbi_24,
+        pdc_pct: stats.pdc_pct
       },
       geometry: item.geometry
     });
@@ -79,8 +86,13 @@ export async function load({fetch}) {
     },
     bloqueos: parseBloqueosCsv(bloqueosText),
     caminos: topojsonToGeojson(caminosTopo),
-    domain: {min, max}
+    domains
   };
+}
+
+function roundToThreeDecimals(value) {
+  if (!Number.isFinite(value)) return Number.NaN;
+  return Math.round(value * 1000) / 1000;
 }
 
 function parseBloqueosCsv(text) {

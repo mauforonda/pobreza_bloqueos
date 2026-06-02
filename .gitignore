@@ -14,7 +14,9 @@ __pycache__/
 
 # Root-level data copies and scratch exports not used by the app build.
 # The app reads the copies in static/ instead.
+/elecciones.csv
 /municipios.topo.json
 /municipios.nombres.json
 /nbi.csv
 /nbi_2024.geojson
+/static/nbi.csv

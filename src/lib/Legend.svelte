@@ -1,42 +1,42 @@
 <script>
-  import {onMount} from "svelte";
+  import { onMount } from "svelte";
+  import {
+    CHOROPLETH_INDICATOR_ORDER,
+    CHOROPLETH_INDICATORS,
+  } from "$lib/indicators";
 
-  export let domain;
+  export let domains;
+  export let selectedIndicatorKey;
   let collapsed = false;
 
-  const colorRange = ["#009474FF", "#F1F4EEFF", "#B0986CFF"];
   const bloqueoBorderColor = "#3b3431";
-
-  const percentFormatter = new Intl.NumberFormat("es-BO", {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  });
 
   const durationDomainMax = 28;
   const durationMinRadius = 2.5;
   const durationMaxRadius = 9.5;
 
-  function formatPercent(value) {
-    return percentFormatter.format(value) + "%";
-  }
-
+  $: activeIndicator =
+    CHOROPLETH_INDICATORS[selectedIndicatorKey] ?? CHOROPLETH_INDICATORS.nbi_24;
+  $: activeDomain = domains?.[selectedIndicatorKey] ?? { min: 0, max: 1 };
   $: ticks = [
-    domain.min,
-    domain.min + (domain.max - domain.min) / 2,
-    domain.max,
+    activeDomain.min,
+    activeDomain.min + (activeDomain.max - activeDomain.min) / 2,
+    activeDomain.max,
   ];
 
   $: circleLegend = [
-    {label: "1 día de duración", value: 1},
-    {label: "7 días", value: 7},
-    {label: "28 días", value: 28},
+    { label: "1 día de duración", value: 1 },
+    { label: "7 días", value: 7 },
+    { label: "28 días", value: 28 },
   ];
 
   function durationScale(value) {
     return (
       durationMinRadius +
       (durationMaxRadius - durationMinRadius) *
-        Math.sqrt(Math.max(0, Math.min(durationDomainMax, value)) / durationDomainMax)
+        Math.sqrt(
+          Math.max(0, Math.min(durationDomainMax, value)) / durationDomainMax,
+        )
     );
   }
 
@@ -65,37 +65,73 @@
   });
 </script>
 
-<aside class:legend-panel--collapsed={collapsed} class="legend-panel" aria-label="Leyenda del mapa">
-  <section class="legend-title">Pobreza y Bloqueos</section>
+<aside
+  class:legend-panel--collapsed={collapsed}
+  class="legend-panel"
+  aria-label="Leyenda del mapa"
+>
+  <section class="legend-title">{activeIndicator.label} y Bloqueos</section>
   <div class="legend-panel__body" id="legend-panel-body">
     <section class="legend-block">
-      <div class="legend-block__section">Pobreza</div>
-      <div class="legend-block__title">
-        Porcentaje de la población que es pobre
+      <div class="legend-block__section-wrap">
+        <select
+          class="legend-block__section legend-block__section--select"
+          bind:value={selectedIndicatorKey}
+          aria-label="Cambiar capa coropleta"
+        >
+          {#each CHOROPLETH_INDICATOR_ORDER as key}
+            <option value={key}>{CHOROPLETH_INDICATORS[key].label}</option>
+          {/each}
+        </select>
+        <span class="legend-block__section-caret" aria-hidden="true"></span>
       </div>
+      <div class="legend-block__title">{activeIndicator.description}</div>
       <div class="legend-color">
-        <svg viewBox="0 0 320 56" role="img" aria-label="Escala de pobreza">
+        <svg
+          viewBox="0 0 320 56"
+          role="img"
+          aria-label={`Escala de ${activeIndicator.label.toLowerCase()}`}
+        >
           <defs>
-            <linearGradient id="pobreza-gradient" x1="0%" x2="100%" y1="0%" y2="0%">
-              <stop offset="0%" stop-color={colorRange[0]} />
-              <stop offset="50%" stop-color={colorRange[1]} />
-              <stop offset="100%" stop-color={colorRange[2]} />
+            <linearGradient
+              id="pobreza-gradient"
+              x1="0%"
+              x2="100%"
+              y1="0%"
+              y2="0%"
+            >
+              <stop offset="0%" stop-color={activeIndicator.colors[0]} />
+              <stop offset="50%" stop-color={activeIndicator.colors[1]} />
+              <stop offset="100%" stop-color={activeIndicator.colors[2]} />
             </linearGradient>
           </defs>
-          <rect x="12" y="5" width="296" height="14" rx="3" fill="url(#pobreza-gradient)" />
+          <rect
+            x="12"
+            y="5"
+            width="296"
+            height="14"
+            rx="3"
+            fill="url(#pobreza-gradient)"
+          />
           {#each ticks as tick, index}
             <g transform={`translate(${12 + (296 * index) / 2}, 0)`}>
               <line x1="0" y1="30" x2="0" y2="38" class="legend-tick" />
-              <text x="0" y="40" text-anchor={index === 0 ? "start" : index === 2 ? "end" : "middle"}>
-                {formatPercent(tick)}
+              <text
+                x="0"
+                y="40"
+                text-anchor={index === 0
+                  ? "start"
+                  : index === 2
+                    ? "end"
+                    : "middle"}
+              >
+                {activeIndicator.formatValue(tick)}
               </text>
             </g>
           {/each}
         </svg>
       </div>
-      <div class="legend-block__source">
-        Necesidades Básicas Insatisfechas (CPV 2024)
-      </div>
+      <div class="legend-block__source">{activeIndicator.source}</div>
     </section>
 
     <div class="legend-block__separator" aria-hidden="true"></div>
@@ -107,7 +143,11 @@
       </div>
       <div class="legend-bloqueos">
         <div class="legend-circles">
-          <svg viewBox="0 0 228 98" role="img" aria-label="Leyenda de duración de bloqueos">
+          <svg
+            viewBox="0 0 228 98"
+            role="img"
+            aria-label="Leyenda de duración de bloqueos"
+          >
             <g transform="translate(8, 6)">
               {#each circleLegendLayout as item, index}
                 <circle
@@ -135,11 +175,13 @@
         </div>
         <div class="legend-status">
           <div class="legend-status__item">
-            <span class="legend-status__swatch legend-status__swatch--active"></span>
+            <span class="legend-status__swatch legend-status__swatch--active"
+            ></span>
             <span>activo</span>
           </div>
           <div class="legend-status__item">
-            <span class="legend-status__swatch legend-status__swatch--inactive"></span>
+            <span class="legend-status__swatch legend-status__swatch--inactive"
+            ></span>
             <span>inactivo</span>
           </div>
         </div>
@@ -182,8 +224,9 @@
   .legend-panel__body {
     display: grid;
     gap: 0.75rem;
-    /* max-height: min(60vh, 21rem); */
+    /* max-height: min(60vh, 20rem); */
     margin-top: 0.5rem;
+    /* padding-bottom: 2.35rem; */
     overflow-y: auto;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
@@ -200,14 +243,53 @@
     gap: 0.4rem;
   }
 
+  .legend-block__section-wrap {
+    position: relative;
+    width: fit-content;
+    max-width: 100%;
+  }
+
   .legend-block__section {
-    font-size: .8rem;
+    font-size: 0.8rem;
     font-weight: 700;
     text-transform: uppercase;
   }
 
+  .legend-block__section--select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    width: auto;
+    padding: 0;
+    padding-right: 0.9rem;
+    border: 0;
+    background: transparent;
+    color: #1d1d1d;
+    cursor: pointer;
+  }
+
+  .legend-block__section--select:focus {
+    outline: none;
+  }
+
+  .legend-block__section-caret {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    width: 0.35rem;
+    height: 0.35rem;
+    border-right: 1.5px solid rgba(23, 23, 23, 0.42);
+    border-bottom: 1.5px solid rgba(23, 23, 23, 0.42);
+    transform: translateY(-60%) rotate(45deg);
+    pointer-events: none;
+  }
+
+  .legend-block__section-caret::before {
+    content: none;
+  }
+
   .legend-title {
-    font-size: .95rem;
+    font-size: 0.95rem;
     font-weight: 700;
     text-transform: uppercase;
   }
@@ -241,6 +323,7 @@
 
   .legend-bloqueos {
     display: flex;
+    flex-direction: row;
     gap: 0.35rem 0.55rem;
     align-items: center;
     justify-items: start;
@@ -254,6 +337,7 @@
     height: auto;
     overflow: visible;
     font-size: var(--legend-text-size);
+    flex: 0 0 auto;
   }
 
   .legend-circle__label {
@@ -304,28 +388,29 @@
   }
 
   .legend-panel__toggle {
+    z-index: 2;
+    color: #7e756c;
+    width: 1.9rem;
+    height: 1.9rem;
+    font: inherit;
+    cursor: pointer;
+    background: #ffffffb8;
+    border: none;
+    border-radius: 999px;
+    justify-content: center;
+    align-items: center;
+    margin: 0;
+    padding: 0;
+    transition:
+      background-color 0.12s,
+      color 0.12s,
+      box-shadow 0.12s;
     display: none;
     position: absolute;
     bottom: 0.35rem;
     right: 0%;
-    z-index: 2;
-    align-items: center;
-    justify-content: center;
-    width: 1.9rem;
-    height: 1.9rem;
-    margin: 0;
-    padding: 0;
-    border: none;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.72);
-    color: #7e756c;
-    font: inherit;
-    cursor: pointer;
-    transform: translateX(-50%);
-    transition:
-      background-color 120ms ease,
-      color 120ms ease,
-      box-shadow 120ms ease;
+    transform: translate(-50%);
+
   }
 
   .legend-panel__toggle:hover {
@@ -351,10 +436,6 @@
     transition: transform 160ms ease;
   }
 
-  .legend-panel--collapsed {
-    padding-bottom: 0rem;
-  }
-
   .legend-panel--collapsed .legend-panel__body {
     max-height: 0;
     margin-top: 0;
@@ -365,16 +446,20 @@
     pointer-events: none;
   }
 
+  .legend-panel--collapsed {
+    padding-bottom: 0;
+  }
+
   .legend-panel--collapsed .legend-panel__toggle-icon {
     transform: translateY(-0.08rem) rotate(225deg);
   }
 
   .legend-status__swatch--active {
-    background: #EB4A40FF;
+    background: #eb4a40ff;
   }
 
   .legend-status__swatch--inactive {
-    background: #F2855DFF;
+    background: #f2855dff;
   }
 
   @media (max-width: 720px) {

@@ -1,8 +1,14 @@
 <script>
   import ChoroplethMap from "$lib/ChoroplethMap.svelte";
+  import {getChoroplethIndicator} from "$lib/indicators";
   import Legend from "$lib/Legend.svelte";
 
   export let data;
+
+  let selectedIndicatorKey = "nbi_24";
+
+  $: indicator = getChoroplethIndicator(selectedIndicatorKey);
+  $: domain = data.domains[selectedIndicatorKey];
 </script>
 
 <svelte:head>
@@ -24,9 +30,13 @@
     choropleth={data.choropleth}
     bloqueos={data.bloqueos}
     caminos={data.caminos}
-    domain={data.domain}
+    indicator={indicator}
+    domain={domain}
   />
-  <Legend domain={data.domain} />
+  <Legend
+    bind:selectedIndicatorKey
+    domains={data.domains}
+  />
   <div class="credito">
     <img
       class="credito__logo"

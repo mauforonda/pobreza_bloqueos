@@ -1,20 +1,30 @@
 <script>
   import {onMount} from "svelte";
   import "maplibre-gl/dist/maplibre-gl.css";
+  import {buildChoroplethExpression} from "$lib/indicators";
 
   export let choropleth;
   export let bloqueos;
   export let caminos;
   export let domain;
+  export let indicator;
 
   let container;
+  let map;
+  let popup;
+  let resize;
+  let handleMove;
+  let handleClick;
+  let handleLeaveMunicipios;
+  let handleLeaveBloqueos;
+  let currentMunicipioId = null;
+  let currentBloqueoId = null;
 
   const baseStyle =
     "https://basemaps.cartocdn.com/gl/positron-nolabels-gl-style/style.json";
   const labelTiles = [
     "https://a.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}.png",
   ];
-  const fillColors = ["#009474FF", "#F1F4EEFF", "#B0986CFF"];
   const bloqueoColor = "#F8B58BFF";
   const bloqueoActiveColor = "#EB4A40FF";
   const municipalityBorderColor = "rgba(255, 255, 255, 0.85)";
@@ -36,15 +46,34 @@
     return DEPARTAMENTOS[index] ?? "";
   }
 
+  function currentIndicator() {
+    return indicator ?? {
+      field: "nbi_24",
+      formatValue: (value) => `${Number(value).toFixed(1)}%`,
+      tooltipSuffix: "de la población es pobre",
+      colors: ["#009474FF", "#F1F4EEFF", "#B0986CFF"],
+    };
+  }
+
+  $: choroplethPaint = domain
+    ? buildChoroplethExpression(currentIndicator(), domain)
+    : null;
+
+  $: if (map && choroplethPaint && map.getLayer("municipios-fill")) {
+    map.setPaintProperty("municipios-fill", "fill-color", choroplethPaint);
+  }
+
   function municipalityPopupHTML(feature) {
     const props = feature.properties ?? {};
+    const activeIndicator = currentIndicator();
+    const value = Number(props[activeIndicator.field] ?? 0);
     return `
       <div class="popup-card">
         <div class="popup-card__eyebrow">${departmentFromCodigo(props.codigo)}</div>
         <div class="popup-card__title">${props.municipio ?? "Municipio sin nombre"}</div>
         <div class="popup-card__body">
-          <span class="popup-card__value">${Number(props.nbi_24 ?? 0).toFixed(2)}%</span>
-          <span class="popup-card__category">de la población es pobre</span>
+          <span class="popup-card__value">${activeIndicator.formatValue(value)}</span>
+          <span class="popup-card__category">${activeIndicator.tooltipSuffix}</span>
         </div>
       </div>
     `;
@@ -66,15 +95,6 @@
 
   onMount(() => {
     let cancelled = false;
-    let map;
-    let popup;
-    let resize;
-    let handleMove;
-    let handleClick;
-    let handleLeaveMunicipios;
-    let handleLeaveBloqueos;
-    let currentMunicipioId = null;
-    let currentBloqueoId = null;
 
     const clearSelected = (source, id) => {
       if (id === null || id === undefined) return;
@@ -156,17 +176,7 @@
           type: "fill",
           source: "municipios",
           paint: {
-            "fill-color": [
-              "interpolate",
-              ["linear"],
-              ["to-number", ["get", "nbi_24"]],
-              domain.min,
-              fillColors[0],
-              (domain.min + domain.max) / 2,
-              fillColors[1],
-              domain.max,
-              fillColors[2],
-            ],
+            "fill-color": choroplethPaint ?? buildChoroplethExpression(currentIndicator(), domain),
             "fill-opacity": 0.88,
           },
         });
