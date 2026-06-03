@@ -1,7 +1,11 @@
 <script>
   import {onMount} from "svelte";
   import "maplibre-gl/dist/maplibre-gl.css";
-  import {buildChoroplethExpression} from "$lib/indicators";
+  import {
+    DEFAULT_CHOROPLETH_INDICATOR_KEY,
+    buildChoroplethExpression,
+    getChoroplethIndicator,
+  } from "$lib/indicators";
 
   export let choropleth;
   export let bloqueos;
@@ -47,12 +51,10 @@
   }
 
   function currentIndicator() {
-    return indicator ?? {
-      field: "nbi_24",
-      formatValue: (value) => `${Number(value).toFixed(1)}%`,
-      tooltipSuffix: "de la población es pobre",
-      colors: ["#009474FF", "#F1F4EEFF", "#B0986CFF"],
-    };
+    return (
+      indicator ??
+      getChoroplethIndicator(DEFAULT_CHOROPLETH_INDICATOR_KEY)
+    );
   }
 
   $: choroplethPaint = domain

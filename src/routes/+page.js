@@ -1,5 +1,9 @@
-import {feature} from "topojson-client";
-import {base} from "$app/paths";
+import { feature } from "topojson-client";
+import { base } from "$app/paths";
+import {
+  CHOROPLETH_INDICATOR_ORDER,
+  CHOROPLETH_INDICATORS,
+} from "$lib/indicators";
 
 export const ssr = false;
 export const prerender = true;
@@ -8,54 +12,77 @@ function parseCsv(text) {
   const lines = text.trim().split(/\r?\n/);
   const headers = lines.shift().split(",");
 
-  return lines
-    .filter(Boolean)
-    .map((line) => {
-      const values = line.split(",");
-      return Object.fromEntries(headers.map((header, index) => [header, values[index]]));
-    });
+  return lines.filter(Boolean).map((line) => {
+    const values = line.split(",");
+    return Object.fromEntries(
+      headers.map((header, index) => [header, values[index]]),
+    );
+  });
 }
 
-export async function load({fetch}) {
-  const [topologyResponse, dataResponse, namesResponse, bloqueosResponse, caminosResponse] =
-    await Promise.all([
-      fetch(`${base}/municipios.topo.json`),
-      fetch(`${base}/data.csv`),
-      fetch(`${base}/municipios.nombres.json`),
-      fetch(`${base}/bloqueos.csv`),
-      fetch(`${base}/caminos.json`),
+export async function load({ fetch }) {
+  const [
+    topologyResponse,
+    dataResponse,
+    namesResponse,
+    bloqueosResponse,
+    caminosResponse,
+  ] = await Promise.all([
+    fetch(`${base}/municipios.topo.json`),
+    fetch(`${base}/data.csv`),
+    fetch(`${base}/municipios.nombres.json`),
+    fetch(`${base}/bloqueos.csv`),
+    fetch(`${base}/caminos.json`),
   ]);
 
-  const [topology, csvText, nombres, bloqueosText, caminosTopo] = await Promise.all([
-    topologyResponse.json(),
-    dataResponse.text(),
-    namesResponse.json(),
-    bloqueosResponse.text(),
-    caminosResponse.json(),
-  ]);
+  const [topology, csvText, nombres, bloqueosText, caminosTopo] =
+    await Promise.all([
+      topologyResponse.json(),
+      dataResponse.text(),
+      namesResponse.json(),
+      bloqueosResponse.text(),
+      caminosResponse.json(),
+    ]);
 
   const rowsByCodigo = new Map();
-  const domains = {
-    nbi_24: {min: Number.POSITIVE_INFINITY, max: Number.NEGATIVE_INFINITY},
-    pdc_pct: {min: Number.POSITIVE_INFINITY, max: Number.NEGATIVE_INFINITY},
-  };
+  const indicatorDefs = CHOROPLETH_INDICATOR_ORDER.map(
+    (key) => CHOROPLETH_INDICATORS[key],
+  ).filter(Boolean);
+  const domains = Object.fromEntries(
+    indicatorDefs.map((indicator) => [
+      indicator.key,
+      {
+        min: Number.POSITIVE_INFINITY,
+        max: Number.NEGATIVE_INFINITY,
+      },
+    ]),
+  );
 
   for (const row of parseCsv(csvText)) {
-    const codigo = row.codigo;
-    const stats = {
-      nbi_24: roundToThreeDecimals(Number(row.nbi_24)),
-      pdc_pct: roundToThreeDecimals(Number(row.pdc_pct)),
-    };
+    const codigo = String(row.codigo).padStart(6, "0");
+    const stats = Object.fromEntries(
+      indicatorDefs.map((indicator) => [
+        indicator.key,
+        roundToThreeDecimals(Number(row[indicator.field])),
+      ]),
+    );
 
     rowsByCodigo.set(codigo, stats);
 
-    domains.nbi_24.min = Math.min(domains.nbi_24.min, stats.nbi_24);
-    domains.nbi_24.max = Math.max(domains.nbi_24.max, stats.nbi_24);
-    domains.pdc_pct.min = Math.min(domains.pdc_pct.min, stats.pdc_pct);
-    domains.pdc_pct.max = Math.max(domains.pdc_pct.max, stats.pdc_pct);
+    for (const indicator of indicatorDefs) {
+      const value = stats[indicator.key];
+
+      if (!Number.isFinite(value)) continue;
+
+      domains[indicator.key].min = Math.min(domains[indicator.key].min, value);
+      domains[indicator.key].max = Math.max(domains[indicator.key].max, value);
+    }
   }
 
-  const municipioFeatures = feature(topology, topology.objects.municipios_full).features;
+  const municipioFeatures = feature(
+    topology,
+    topology.objects.municipios_full,
+  ).features;
   const features = [];
 
   for (const item of municipioFeatures) {
@@ -72,21 +99,29 @@ export async function load({fetch}) {
       properties: {
         codigo,
         municipio,
-        nbi_24: stats.nbi_24,
-        pdc_pct: stats.pdc_pct
+        ...stats,
       },
-      geometry: item.geometry
+      geometry: item.geometry,
     });
   }
+
+  const normalizedDomains = Object.fromEntries(
+    Object.entries(domains).map(([key, domain]) => [
+      key,
+      domain.min === Number.POSITIVE_INFINITY
+        ? {min: 0, max: 1}
+        : domain,
+    ]),
+  );
 
   return {
     choropleth: {
       type: "FeatureCollection",
-      features
+      features,
     },
     bloqueos: parseBloqueosCsv(bloqueosText),
     caminos: topojsonToGeojson(caminosTopo),
-    domains
+    domains: normalizedDomains,
   };
 }
 
@@ -101,27 +136,25 @@ function parseBloqueosCsv(text) {
 
   return {
     type: "FeatureCollection",
-    features: lines
-      .filter(Boolean)
-      .map((line, index) => {
-        const values = line.split(",");
-        const row = Object.fromEntries(
-          headers.map((header, headerIndex) => [header, values[headerIndex]])
-        );
+    features: lines.filter(Boolean).map((line, index) => {
+      const values = line.split(",");
+      const row = Object.fromEntries(
+        headers.map((header, headerIndex) => [header, values[headerIndex]]),
+      );
 
-        return {
-          type: "Feature",
-          id: index,
-          properties: {
-            duracion: Number(row.duracion),
-            activo: row.activo === "True"
-          },
-          geometry: {
-            type: "Point",
-            coordinates: [Number(row.x), Number(row.y)]
-          }
-        };
-      })
+      return {
+        type: "Feature",
+        id: index,
+        properties: {
+          duracion: Number(row.duracion),
+          activo: row.activo === "True",
+        },
+        geometry: {
+          type: "Point",
+          coordinates: [Number(row.x), Number(row.y)],
+        },
+      };
+    }),
   };
 }
 
@@ -130,7 +163,7 @@ function topojsonToGeojson(topo) {
   const object = objectName ? topo.objects[objectName] : null;
 
   if (!object) {
-    return {type: "FeatureCollection", features: []};
+    return { type: "FeatureCollection", features: [] };
   }
 
   return feature(topo, object);

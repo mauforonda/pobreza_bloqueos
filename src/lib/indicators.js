@@ -7,8 +7,8 @@ function formatPercent(value) {
   return `${percentFormatter.format(value)}%`;
 }
 
-export const CHOROPLETH_INDICATORS = {
-  nbi_24: {
+export const CHOROPLETH_INDICATOR_LIST = [
+  {
     key: "nbi_24",
     label: "Pobreza",
     description: "Porcentaje de la población que es pobre",
@@ -18,7 +18,7 @@ export const CHOROPLETH_INDICATORS = {
     field: "nbi_24",
     formatValue: formatPercent,
   },
-  pdc_pct: {
+  {
     key: "pdc_pct",
     label: "Votación al PDC",
     description: "Porcentaje de votos totales en segunda vuelta electoral",
@@ -28,12 +28,43 @@ export const CHOROPLETH_INDICATORS = {
     field: "pdc_pct",
     formatValue: formatPercent,
   },
-};
+  {
+    key: "identidad_pueblo_pct",
+    label: "Autoidentificación indígena",
+    description: "Porcentaje de la población que se identifica como indígena",
+    source: "Censo de Población y Vivienda 2024",
+    tooltipSuffix: "de la población se identifica como indígena",
+    colors: ["rgb(244, 247, 236)", "#D4D5BFFF", "#506446FF"],
+    field: "identidad_pueblo_pct",
+    formatValue: formatPercent,
+  },
+  {
+    key: "nacimiento_municipio_match_pct",
+    label: "Baja movilidad",
+    description: "Porcentaje de la población que vive en el mismo municipio donde nació",
+    source: "Censo de Población y Vivienda 2024",
+    tooltipSuffix: "de la población que vive en el mismo municipio donde nació",
+    colors: ["#3D619DFF", "#9CA9BAFF", "#894B33FF"],
+    field: "nacimiento_municipio_match_pct",
+    formatValue: formatPercent,
+  },
+];
 
-export const CHOROPLETH_INDICATOR_ORDER = ["nbi_24", "pdc_pct"];
+export const CHOROPLETH_INDICATORS = Object.fromEntries(
+  CHOROPLETH_INDICATOR_LIST.map((indicator) => [indicator.key, indicator]),
+);
+
+export const CHOROPLETH_INDICATOR_ORDER = CHOROPLETH_INDICATOR_LIST.map(
+  (indicator) => indicator.key,
+);
+
+export const DEFAULT_CHOROPLETH_INDICATOR_KEY = "identidad_pueblo_pct";
 
 export function getChoroplethIndicator(key) {
-  return CHOROPLETH_INDICATORS[key] ?? CHOROPLETH_INDICATORS.nbi_24;
+  return (
+    CHOROPLETH_INDICATORS[key] ??
+    CHOROPLETH_INDICATORS[DEFAULT_CHOROPLETH_INDICATOR_KEY]
+  );
 }
 
 export function buildChoroplethExpression(indicator, domain) {

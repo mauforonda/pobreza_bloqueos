@@ -7,7 +7,7 @@
 
   export let domains;
   export let selectedIndicatorKey;
-  let collapsed = false;
+  export let collapsed = false;
 
   const bloqueoBorderColor = "#3b3431";
 

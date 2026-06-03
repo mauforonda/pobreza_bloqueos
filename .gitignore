@@ -12,11 +12,15 @@ __pycache__/
 # Local OS/editor clutter
 .DS_Store
 
-# Root-level data copies and scratch exports not used by the app build.
-# The app reads the copies in static/ instead.
+# Working copies and source datasets not needed in the deployed app.
 /elecciones.csv
 /municipios.topo.json
 /municipios.nombres.json
 /nbi.csv
 /nbi_2024.geojson
+/persona_metadata.parquet
+/vivienda_metadata.parquet
+/mortalidad_metadata.parquet
+/emigracion_metadata.parquet
+/indicadores/
 /static/nbi.csv
